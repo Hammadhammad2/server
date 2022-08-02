@@ -2,25 +2,37 @@ import City from "../models/city.js";
 import { WENT_WRONG, CITY_DELETED, CITY_ALREADY_EXISTS } from "./constants.js";
 
 export const addCity = async (req, res) => {
-  //console.log(req.body);
-  try {
-    const old = await City.findOne({
-      placeId: req.body.placeId,
-      userId: req.body.userId,
-    });
+  async function addCity(city) {
+    console.log(city);
+    try {
+      const old = await City.findOne({
+        placeId: city.placeId,
+        userId: city.userId,
+      });
 
-    //console.log(old);
+      console.log(old);
 
-    if (old) {
-      return res.status(400).json({ message: CITY_ALREADY_EXISTS });
+      if (old) {
+        return res.status(400).json({ message: CITY_ALREADY_EXISTS });
+      }
+
+      const result = await City.create(city);
+      console.log(result);
+      res.status(200).json(result);
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: WENT_WRONG });
     }
-    const result = await City.create(req.body);
-
-    res.status(200).json(result);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: WENT_WRONG });
   }
+
+  if (Array.isArray(req.body)) {
+    for (var i = 0; i < req.body.length; i++) {
+      addCity(req.body[i]);
+    }
+  } else {
+    addCity(req.body);
+  }
+  // console.log(req.body.placeId);
 };
 
 export const showCity = async (req, res) => {
