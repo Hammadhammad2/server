@@ -10,60 +10,72 @@ export const addCity = async (req, res) => {
 
   try {
     async function insertCity(city) {
-      const result = await City.create(city)
+      await City.create(city)
         .then((res) => {
-          return true;
+          return res;
         })
         .catch((err) => {
-          return false;
+          return err;
         });
+      return;
     }
 
     async function checkCity(city) {
-      console.log(city);
-      return new Promise((resolve, reject) => {
-        const old = City.findOne({
-          placeId: city.placeId,
-          userId: city.userId,
-        });
-        if (old) {
-          //console.log(old);
-          resolve(false);
-        } else {
-          reject(true);
-        }
+      //yahan promise lga lete hain ??
+
+      const old = await City.findOne({
+        placeId: city.placeId,
+        userId: city.userId,
       });
+
+      if (old) {
+        return false;
+      } else {
+        return true;
+      }
     }
 
     if (Array.isArray(req.body)) {
-      const cities = req.body;
       var notAddedCities = [];
-      for (var i = 0; i < cities.length; i++) {
-        checkCity(cities[i]).then((res) => {
-          console.log(res);
-          if (res) {
-            insertCity(cities[i]);
-          } else {
-            notAddedCities.push(cities[i]);
-          }
-        });
-      }
-      console.log(notAddedCities);
-      if (cities.length > 0) {
-        res.status(200).json(notAddedCities);
+      var cities = req.body;
+      await Promise.all(
+        cities.map(async (city) => {
+          await checkCity(city).then((resp) => {
+            if (resp) {
+              insertCity(city);
+            } else {
+              notAddedCities.push(city);
+            }
+          });
+        })
+      );
+
+      if (notAddedCities.length > 0) {
+        res
+          .status(200)
+          .json({ notAddedCities, message: "Some Cities not added" });
       } else {
         res.status(200).json({ message: "All cities added" });
       }
     } else {
-      if (insertCity(req.body)) {
-        res.status(200).json({ message: "City Added" });
-      } else {
-        console.log(error);
-        res.status(500).json({ message: WENT_WRONG });
-      }
+      const city = req.body;
+      checkCity(city).then((resp) => {
+        if (resp) {
+          insertCity(city)
+            .then((ress) => {
+              res.status(200).json({ message: "City Added Successfully" });
+            })
+            .catch((err) => {
+              console.log(err);
+              res.status(500).json({ message: WENT_WRONG });
+            });
+        } else {
+          res.status(400).json({ message: CITY_ALREADY_EXISTS });
+        }
+      });
     }
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    console.log(err);
     res.status(500).json({ message: WENT_WRONG });
   }
 };
