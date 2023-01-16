@@ -4,29 +4,29 @@ import {
   USER_ALREADY_EXISTS,
   INVALID_PASSWORD,
   WENT_WRONG,
-  CITY_ALREADY_EXISTS,
+  USER_NOT_EXISTS,
 } from "./constants.js";
 import User from "../models/user.js";
 
 const secret = "test";
 
 export const signup = (req, res) => {
-  return new Promise((resolve, reject) => {
-    const { name, email, phoneno, password, confirmpassword } = req.body;
+  return new Promise(async (resolve, reject) => {
     try {
-      const oldUser = User.findOne({ email });
+      console.log(req.body);
+      const { name, email, phoneno, password, confirmpassword } = req.body;
+      console.log(password);
 
+      const oldUser = await User.findOne({ email: email });
+      console.log(oldUser);
       if (oldUser) {
-        resolve(res.status(400).json({ message: USER_ALREADY_EXISTS }));
+        return reject(res.status(400).json({ message: USER_ALREADY_EXISTS }));
       }
 
-      if (password !== confirmpassword) {
-        resolve(res.status(400).json({ message: INVALID_PASSWORD }));
-      }
+      const hashedPassword = await bcrypt.hash(password, 12);
+      console.log(hashedPassword);
 
-      const hashedPassword = bcrypt.hash(password, 12);
-
-      const result = User.create({
+      const result = await User.create({
         name,
         email,
         phoneno,
@@ -34,38 +34,39 @@ export const signup = (req, res) => {
       });
 
       console.log(result);
-      resolve(res.status(201).json(result));
+      return resolve(res.status(200).json(result));
     } catch (error) {
       console.log(error);
-      reject(res.status(500).json({ message: WENT_WRONG }));
+      return reject(res.status(500).json({ message: WENT_WRONG }));
     }
   });
 };
 
-export const login = async (req, res) => {
-  const { email, password } = req.body;
+export const login = (req, res) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const { email, password } = req.body;
+      console.log(email);
+      const user = await User.findOne({ email });
+      console.log(user);
 
-  try {
-    const user = await User.findOne({ email });
+      if (!user) {
+        return reject(res.status(400).json({ message: USER_NOT_EXISTS }));
+      }
 
-    //console.log(oldUser);
+      const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
-    if (!user) {
-      return res.status(400).json({ message: CITY_ALREADY_EXISTS });
+      if (!isPasswordCorrect) {
+        return reject(res.status(400).json({ message: INVALID_PASSWORD }));
+      }
+      const token = jwt.sign({ email: user.email, id: user._id }, secret, {
+        expiresIn: "2h",
+      });
+
+      return resolve(res.status(200).json({ user, token }));
+    } catch (error) {
+      console.log(error);
+      return reject(res.status(500).json({ message: WENT_WRONG }));
     }
-
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordCorrect) {
-      return res.status(400).json({ message: INVALID_PASSWORD });
-    }
-    const token = jwt.sign({ email: user.email, id: user._id }, secret, {
-      expiresIn: "2h",
-    });
-
-    res.status(200).json({ user, token });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: WENT_WRONG });
-  }
+  });
 };
