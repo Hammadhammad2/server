@@ -13,4 +13,4 @@ app.use(cors());
 
 app.use("/", appRoutes);
 
-dbConnection(app);
+
